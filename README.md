@@ -1,7 +1,7 @@
 # sterling-b2bi-samples
 Sterling B2Bi Samples
 
-## Business Process
+## [Business Process](https://github.com/snymanc/ibm-sterling-b2bi-samples/tree/master/business-process)
 
 | BPs Name                        |            Description of Role                                          |
 |---------------------------------|-------------------------------------------------------------------------|

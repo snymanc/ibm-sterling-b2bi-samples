@@ -1,0 +1,102 @@
+<!--
+
+Process-Name:    generate-jwt
+
+Description:     Creates Java Web Token.
+
+Created By:      Clayton Snyman
+
+Changes:
+========
+Date       | Owner               | Description
+===========|=====================|=============================================================
+30/11/2023 | Clayton Snyman      | v1.0-00 - Initial commit
+
+Notes:
+=====
+
+Properties:
+===========
+Generate-JWT.properties
+    jwt.*
+
+-->
+<process name="generate-jwt">
+
+    <sequence name="Main">
+
+        <operation name="BP Meta Data">
+            <participant name="BPMetaDataInfoService"/>
+            <output message="BPMetaDataServiceTypeInputMessage">
+                <assign to="."                from="*"/>
+            </output>
+            <input message="inmsg">
+                <assign to="tracking/@flowId" from="string(BPDATA/WORKFLOW_ID)" append="true"/>
+                <assign to="tracking/@notes"  from="string('BP Meta Data')"/>
+            </input>
+        </operation>
+
+        <operation name="Generate-JWT properties Refresh">
+            <participant name="CacheRefreshService"/>
+            <output message="Xout">
+                <assign to="cache_type"      from="'properties'"/>
+                <assign to="cache_name"      from="'Generate-JWT'"/>
+            </output>
+            <input message="Xin">
+                <assign to="tracking/@notes" from="string('Generate-JWT properties Refresh')"/>
+            </input> 
+        </operation>
+
+        <operation name="JavaTask Service">
+            <participant name="JavaTask"/>
+            <output message="JavaTaskInputMessage">
+                <assign to="headerType"      from="sci-get-property('Generate-JWT', 'jwt.headerType')"/>
+                <assign to="setIssuer"       from="sci-get-property('Generate-JWT', 'jwt.setIssuer')"/>
+                <assign to="setIAT"          from="sci-get-property('Generate-JWT', 'jwt.setIAT')"/>
+                <assign to="setEXP"          from="sci-get-property('Generate-JWT', 'jwt.setEXP')"/>
+                <assign to="uniqueId"        from="sci-get-property('Generate-JWT', 'jwt.uniqueId')"/>
+                <assign to="issuer"          from="sci-get-property('Generate-JWT', 'jwt.issuer')"/>
+                <assign to="subject"         from="sci-get-property('Generate-JWT', 'jwt.subject')"/>
+                <assign to="ttlMillis"       from="sci-get-property('Generate-JWT', 'jwt.ttlMillis')"/>
+                <assign to="signAlgorithm"   from="sci-get-property('Generate-JWT', 'jwt.signAlgorithm')"/>
+                <assign to="rsaPrivateKey"   from="sci-get-property('Generate-JWT', 'jwt.rsaPrivateKey')"/>
+                <assign to="keyAlgorithm"    from="sci-get-property('Generate-JWT', 'jwt.keyAlgorithm')"/>
+                <assign to="userId"          from="string(partner/@userId)"/>
+                <assign to="jwtFlowId"       from="string(tracking/@flowId)"/>
+                <assign to="javaFile"        from="sci-get-property('Generate-JWT', 'jwt.javaTask')"/>
+            </output>
+            <input message="inmsg">
+                <assign to="JWT/@token"      from="string(token)" append="true"/>
+                <assign to="JWT/@issuedAt"   from="string(IAT)"/>
+                <assign to="JWT/@expiresAt"  from="string(EXP)"/>
+                <assign to="JWT/@uniqueId"   from="string(uniqueId)"/>
+                <assign to="JWT/@issuer"     from="string(issuer)"/>
+                <assign to="JWT/@subject"    from="string(subject)"/>
+                <assign to="JWT/@claims"     from="string(claims)"/>
+                <assign to="JWT/@exist"      from="if(string(token) != '', 'true', 'false')"/>
+                <assign to="tracking/@notes" from="string('Generate JWT')"/>
+            </input>
+        </operation>
+
+        <onFault>
+
+            <sequence name="Exception in Root Flow">
+
+                <operation name="Assign - Exception Properties">
+                    <participant name="AssignService"/>
+                    <output message="AssignServiceTypeInputMessage">
+                        <assign to="."                from="tracking"/>
+                        <assign to="status"           from="string('Failed')"/>
+                    </output>
+                    <input message="inmsg">
+                        <assign to="tracking/@status" from="string(status)"/>
+                    </input>
+                </operation>
+
+            </sequence>
+
+        </onFault>
+
+    </sequence>
+
+</process>

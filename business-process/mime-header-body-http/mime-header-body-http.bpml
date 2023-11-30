@@ -1,0 +1,134 @@
+<!--
+
+Process-Name:    mime-header-body-http
+
+Description:     Add header to HTTP using MIME service.
+
+Created By:      Clayton Snyman
+
+Changes:
+========
+Date       | Owner               | Description
+===========|=====================|==============================================================================
+27/11/2023 | Clayton Snyman      | v1.0-00 - Intial release
+
+Notes:
+=====
+
+
+-->
+<process name="mime-header-body-http">
+
+    <rule name="HTTP Token Exist">
+        <condition>
+            string(http/@token) != ''
+        </condition>
+    </rule>
+
+    <sequence name="Main">
+
+        <operation name="Set Content Type to json:application">
+            <participant name="GetDocumentInfoService"/>
+            <output message="xout">
+                <assign to="."                               from="*"/>
+                <assign to="DocumentContentSubType"          from="'json'"/>
+                <assign to="DocumentContentType"             from="'application'"/>
+                <assign to="updateMetaDataOnly"              from="'true'"/>
+            </output>
+            <input message="xin">
+                <assign to="message/jsonDoc/doc:document-id" from="string(DocumentId)" />
+                <assign to="message/jsonDoc/@type"           from="string(DocumentContentType)" />
+                <assign to="message/jsonDoc/@subType"        from="string(DocumentContentSubType)" />
+            </input>
+        </operation>
+
+        <assign name="Assign - Increment tracking/@httpTryNum" to="tracking/@httpTryNum" from="tracking/@httpTryNum + 1"/>        
+
+        <operation name="Assign - MIME Header and Body">
+            <participant name="AssignService"/>
+            <output message="AssignServiceTypeInputMessage">
+                <assign to="mime:message/mime:header"       from="concat('Bearer ', string(source/JWT/@token))"                               append="true"/>
+                <assign to="mime:message/mime:header/@name" from="string('Authorization')"                                                    append="true"/>
+                <assign to="mime:message/mime:header"       from="concat(string(message/jsonDoc/@type),'/',string(message/jsonDoc/@subType))" append="true"/>
+                <assign to="mime:message/mime:header/@name" from="string('Content-Type')"                                                     append="true"/>
+                <assign to="mime:message/mime:header"       from="'true'"                                                                     append="true"/>
+                <assign to="mime:message/mime:header/@name" from="'jwt-verify-certificate'"                                                   append="true"/>
+                <assign to="mime:message/mime:body"         from="message/jsonDoc/doc:document-id"/>
+            </output>
+            <input message="inmsg">
+                <assign to="."                              from="*"/>
+            </input>
+        </operation>
+
+        <operation name="Assign MIME encode document">
+            <participant name="MIME"/>
+            <output message="packRequest">
+                <assign to="mime-document"  from="mime:message"/>
+            </output>
+            <input message="packResponse">
+                <assign to="PrimaryDocument" from="mime-document/@*" />
+            </input>
+        </operation>
+
+        <operation name="HTTP Session Begin">
+            <participant name="HTTPClientBeginSession"/>
+            <output message="HTTPClientBeginSessionServiceTypeInputMessage">
+                <assign to="."                   from="*"/>
+                <assign to="HTTPClientAdapter"   from="'HTTPClientAdapter'"/>                
+                <assign to="RemoteHost"          from="'someserver'"/>
+                <assign to="RemotePort"          from="'443'"/>
+                <assign to="CipherStrength"      from="'Strong'"/>
+                <assign to="CACertificateId"     from="'B2BHttp-Id'"/>
+                <assign to="SystemCertificateId" from="'httptestclientcert1-Id'"/>
+                <assign to="SSL"                 from="'Must'"/>
+            </output>
+            <input message="inmsg">
+                <assign to="http/@token"         from="string(SessionToken)" append="true"/>
+                <assign to="http/@startTime"     from="string(SessionBeginTime)"/>
+            </input>
+        </operation>
+
+        <operation name="HTTP Method - POST Mandate">
+            <participant name="HTTPClientMethod"/>
+            <output message="HTTPClientMethodServiceTypeInputMessage">
+                <assign to="."            from="*"/>
+                <assign to="SessionToken" from="string(http/@token)"/>
+                <assign to="MethodType"   from="'POST'"/>
+                <assign to="URI"          from="'/someuri'"/>
+            </output>
+            <input message="inmsg">
+                <assign to="."            from="*"/>
+            </input>
+        </operation>
+
+        <operation name="HTTP Session End">
+            <participant name="HTTPClientEndSession"/>
+            <output message="HTTPClientEndSessionServiceTypeInputMessage">
+                <assign to="SessionToken"  from="string(http/@token)"/>
+            </output>
+            <input message="inmsg">
+                <assign to="http/@endTime" from="string(SessionEndTime)"/>
+            </input>
+        </operation>
+
+        <onFault>
+
+            <sequence name="Handle HTTP Exception">
+
+                <operation name="HTTP Session End">
+                    <participant name="HTTPClientEndSession"/>
+                    <output message="HTTPClientEndSessionServiceTypeInputMessage">
+                        <assign to="SessionToken"  from="string(http/@token)"/>
+                    </output>
+                    <input message="inmsg">
+                        <assign to="http/@endTime" from="string(SessionEndTime)"/>
+                    </input>
+                </operation>
+
+            </sequence>
+
+        </onFault>
+
+    </sequence>
+
+</process>
